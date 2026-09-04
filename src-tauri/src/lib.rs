@@ -1,4 +1,5 @@
 mod config;
+mod discovery;
 mod file_kind;
 mod reachability;
 
