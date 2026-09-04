@@ -1,4 +1,5 @@
 mod config;
+mod convert;
 mod discovery;
 mod file_kind;
 mod printer;
