@@ -1,3 +1,4 @@
+mod config;
 mod file_kind;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
