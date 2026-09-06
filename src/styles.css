@@ -28,6 +28,16 @@ body {
   font-weight: 600;
 }
 
+#dropzone.busy {
+  border-color: #2b6cd9;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 #manual-ip-form {
   margin-top: 1rem;
   display: flex;

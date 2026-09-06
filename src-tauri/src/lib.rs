@@ -11,12 +11,26 @@ use file_kind::FileKind;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Serialize)]
 struct PrinterStatus {
     ip: String,
     name: String,
+}
+
+#[derive(Clone, Serialize)]
+struct PrintProgress {
+    stage: String,
+}
+
+fn emit_progress(app_handle: &tauri::AppHandle, stage: &str) {
+    let _ = app_handle.emit(
+        "print-progress",
+        PrintProgress {
+            stage: stage.to_string(),
+        },
+    );
 }
 
 fn config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -82,13 +96,20 @@ fn set_manual_ip(app_handle: tauri::AppHandle, ip: String) -> Result<(), String>
 }
 
 #[tauri::command]
-fn print_file(app_handle: tauri::AppHandle, path: String) -> Result<String, String> {
-    let input = PathBuf::from(&path);
+async fn print_file(app_handle: tauri::AppHandle, path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || print_file_blocking(&app_handle, &path))
+        .await
+        .map_err(|e| format!("La tâche d'impression a été interrompue : {e}"))?
+}
+
+fn print_file_blocking(app_handle: &tauri::AppHandle, path: &str) -> Result<String, String> {
+    let input = PathBuf::from(path);
     let kind = file_kind::detect(&input);
 
     let pdf_path = match kind {
         FileKind::Pdf => input.clone(),
         FileKind::Office => {
+            emit_progress(app_handle, "Conversion du document en PDF...");
             let soffice = convert::find_soffice_binary().ok_or_else(|| {
                 "LibreOffice n'est pas installé. Installez-le pour convertir les fichiers Word/Excel.".to_string()
             })?;
@@ -103,7 +124,8 @@ fn print_file(app_handle: tauri::AppHandle, path: String) -> Result<String, Stri
         }
     };
 
-    let uri = resolve_printer_uri(&app_handle)?;
+    emit_progress(app_handle, "Recherche de l'imprimante sur le réseau...");
+    let uri = resolve_printer_uri(app_handle)?;
 
     let reasons = printer::get_state_reasons(&uri)?;
     if !reasons.is_empty() {
@@ -113,18 +135,32 @@ fn print_file(app_handle: tauri::AppHandle, path: String) -> Result<String, Stri
         ));
     }
 
+    emit_progress(app_handle, "Préparation de la page pour l'impression...");
     let gs = ghostscript::find_ghostscript_binary().ok_or_else(|| {
         "Ghostscript n'est pas installé. Installez-le pour préparer les documents à imprimer."
             .to_string()
     })?;
     let raster_dir = std::env::temp_dir().join("driver-imprimante-raster");
     let ppm_pages = ghostscript::render_pdf_to_ppms(&gs, &pdf_path, &raster_dir)?;
+
+    emit_progress(
+        app_handle,
+        &format!(
+            "Encodage de {} page{}...",
+            ppm_pages.len(),
+            if ppm_pages.len() > 1 { "s" } else { "" }
+        ),
+    );
     let pages = ppm_pages
         .iter()
         .map(|p| ghostscript::parse_ppm(p))
         .collect::<Result<Vec<_>, _>>()?;
     let raster_bytes = raster::encode_document(&pages);
 
+    emit_progress(
+        app_handle,
+        "Envoi à l'imprimante... cela peut prendre jusqu'à une minute selon l'imprimante.",
+    );
     printer::send_print_job(&uri, raster_bytes)?;
 
     Ok("Document envoyé à l'imprimante.".to_string())
