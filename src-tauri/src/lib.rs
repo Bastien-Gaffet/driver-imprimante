@@ -1,11 +1,11 @@
-mod config;
-mod convert;
-mod discovery;
-mod file_kind;
-mod ghostscript;
-mod printer;
-mod raster;
-mod reachability;
+pub mod config;
+pub mod convert;
+pub mod discovery;
+pub mod file_kind;
+pub mod ghostscript;
+pub mod printer;
+pub mod raster;
+pub mod reachability;
 
 use file_kind::FileKind;
 use serde::Serialize;
