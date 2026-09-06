@@ -1,4 +1,18 @@
-# Application d'impression directe — Brother HL-L3240CDW (ou modèle proche)
+# Application d'impression directe — Brother HL-3140CW series
+
+> **Mise à jour post-implémentation (2026-09-06) :** le modèle supposé au
+> moment du design (HL-L3240CDW) était une hypothèse non vérifiée — le
+> texte ci-dessous la mentionne encore par endroits comme contexte
+> historique. La vraie imprimante s'est révélée être une **Brother
+> HL-3140CW series**, dont l'IP est distribuée par **DHCP** (pas fixe), et
+> dont la file IPP n'accepte **pas** le PDF brut
+> (`document-format-supported = [application/octet-stream, image/urf,
+> image/pwg-raster]`, `pdf-versions-supported = none`). Le pipeline
+> réellement implémenté convertit donc chaque page en **PWG-Raster**
+> (600dpi, sRGB 8 bits) via Ghostscript avant l'envoi IPP — voir
+> `src-tauri/src/raster.rs` et `src-tauri/src/ghostscript.rs`. Le reste de
+> l'architecture (Tauri, mDNS, cache d'IP, LibreOffice pour Office→PDF)
+> est resté fidèle au design d'origine.
 
 ## Contexte et problème
 
@@ -10,8 +24,9 @@ sur 4 appareils détectés, 2 restent sans nom identifiable (le port 9100 seul
 ne suffit pas à identifier une imprimante Brother avec certitude, et le
 port IPP 631 n'était pas scanné).
 
-L'IP de l'imprimante est censée être fixe (configurée manuellement), mais ce
-réglage n'a pas pu être vérifié en direct au moment du design.
+L'IP de l'imprimante était supposée fixe par l'utilisateur ; la découverte
+mDNS a confirmé après coup qu'elle est en réalité distribuée par DHCP,
+justifiant la découverte automatique plutôt qu'une IP codée en dur.
 
 ## Objectif
 
