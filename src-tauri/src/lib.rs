@@ -113,8 +113,19 @@ fn print_file(app_handle: tauri::AppHandle, path: String) -> Result<String, Stri
         ));
     }
 
-    let bytes = std::fs::read(&pdf_path).map_err(|e| format!("Impossible de lire le fichier : {e}"))?;
-    printer::send_print_job(&uri, bytes)?;
+    let gs = ghostscript::find_ghostscript_binary().ok_or_else(|| {
+        "Ghostscript n'est pas installé. Installez-le pour préparer les documents à imprimer."
+            .to_string()
+    })?;
+    let raster_dir = std::env::temp_dir().join("driver-imprimante-raster");
+    let ppm_pages = ghostscript::render_pdf_to_ppms(&gs, &pdf_path, &raster_dir)?;
+    let pages = ppm_pages
+        .iter()
+        .map(|p| ghostscript::parse_ppm(p))
+        .collect::<Result<Vec<_>, _>>()?;
+    let raster_bytes = raster::encode_document(&pages);
+
+    printer::send_print_job(&uri, raster_bytes)?;
 
     Ok("Document envoyé à l'imprimante.".to_string())
 }

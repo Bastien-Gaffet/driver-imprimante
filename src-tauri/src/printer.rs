@@ -13,15 +13,15 @@ pub fn parse_state_reasons(raw: &str) -> Vec<String> {
         .collect()
 }
 
-pub fn send_print_job(uri_str: &str, pdf_bytes: Vec<u8>) -> Result<(), String> {
+pub fn send_print_job(uri_str: &str, pwg_raster_bytes: Vec<u8>) -> Result<(), String> {
     let uri: Uri = uri_str
         .parse()
         .map_err(|e| format!("URI imprimante invalide : {e}"))?;
-    let payload = IppPayload::new(Cursor::new(pdf_bytes));
+    let payload = IppPayload::new(Cursor::new(pwg_raster_bytes));
     let operation = IppOperationBuilder::print_job(uri.clone(), payload)
         .user_name("driver-imprimante")
         .job_title("Impression depuis Driver imprimante")
-        .document_format("application/pdf")
+        .document_format("image/pwg-raster")
         .build()
         .map_err(|e| format!("Échec de préparation du job IPP : {e}"))?;
 
