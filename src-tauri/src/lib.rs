@@ -2,6 +2,7 @@ mod config;
 mod convert;
 mod discovery;
 mod file_kind;
+mod ghostscript;
 mod printer;
 mod raster;
 mod reachability;
