@@ -1,6 +1,8 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 interface PrinterStatus {
   ip: string;
@@ -66,3 +68,39 @@ async function showCurrentPrinter() {
 }
 
 showCurrentPrinter();
+
+const updateBanner = document.querySelector<HTMLDivElement>("#update-banner")!;
+const updateText = document.querySelector<HTMLParagraphElement>("#update-text")!;
+const updateInstallBtn = document.querySelector<HTMLButtonElement>("#update-install")!;
+
+async function checkForUpdate() {
+  let update: Update | null;
+  try {
+    update = await check();
+  } catch {
+    return;
+  }
+  if (!update) return;
+
+  updateText.textContent = `Mise à jour ${update.version} disponible.`;
+  updateBanner.hidden = false;
+
+  updateInstallBtn.addEventListener(
+    "click",
+    async () => {
+      updateInstallBtn.disabled = true;
+      updateText.textContent = "Téléchargement de la mise à jour...";
+      try {
+        await update!.downloadAndInstall();
+        updateText.textContent = "Redémarrage...";
+        await relaunch();
+      } catch (err) {
+        updateText.textContent = `Échec de la mise à jour : ${String(err)}`;
+        updateInstallBtn.disabled = false;
+      }
+    },
+    { once: true },
+  );
+}
+
+checkForUpdate();
